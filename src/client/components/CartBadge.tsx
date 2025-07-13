@@ -7,7 +7,6 @@ export interface CartBadgeProps {
     id: number;
 }
 
-
 const bem = cn('CartBadge');
 
 export const CartBadge: React.FC<CartBadgeProps> = ({ id }) => {
