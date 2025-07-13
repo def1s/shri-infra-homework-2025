@@ -1,0 +1,41 @@
+name: Deploy to Prod
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        required: true
+env:
+  DOCKER_REGISTRY: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify image exists
+        run: |
+          IMAGE=$DOCKER_REGISTRY:${{ github.event.inputs.release_version }}_latest
+          docker manifest inspect $IMAGE
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            docker pull $DOCKER_REGISTRY:${{ github.event.inputs.release_version }}_latest
+            docker stop app || true
+            docker rm app || true
+            docker run -d --name app -p 80:3000 $DOCKER_REGISTRY:${{ github.event.inputs.release_version }}_latest
+      - uses: actions/github-script@v6
+        env:
+          VERSION: ${{ github.event.inputs.release_version }}
+        with:
+          script: |
+            const issues = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+            const issue = issues.data.find(i => i.title === `Release v${process.env.VERSION}`);
+            if (!issue) return;
+            await github.rest.issues.createComment({ 
+              owner: context.repo.owner, 
+              repo: context.repo.repo, 
+              issue_number: issue.number, 
+              body: `**Deployed:** ${new Date().toISOString()}` 
+            });
