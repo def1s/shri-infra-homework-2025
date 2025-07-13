@@ -22,7 +22,6 @@ export const Application: FC = () => {
     const toggle = useCallback(() => setCollapsed(!collapsed), [setCollapsed, collapsed]);
     const hide = useCallback(() => setCollapsed(true), [setCollapsed]);
 
-
     const count = Object.keys(cart).length;
     const cartLabel = count ? `Cart (${count})` : 'Cart';
     const navbarClass = collapsed ? 'collapse navbar-collapse' : 'navbar-collapse';
