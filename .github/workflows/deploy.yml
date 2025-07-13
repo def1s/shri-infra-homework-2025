@@ -30,6 +30,9 @@ jobs:
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
+            export DOCKER_REGISTRY=${DOCKER_REGISTRY}
+            export RELEASE_VERSION=${RELEASE_VERSION}
+
             docker pull $DOCKER_REGISTRY:${RELEASE_VERSION}_latest
             docker stop app || true
             docker rm app || true
