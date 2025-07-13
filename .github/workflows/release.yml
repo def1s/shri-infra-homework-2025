@@ -102,16 +102,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue create \
-            --title "Release v$DOCKER_TAG" \
-            --body "$(printf '### 🚀 Release v%s\n\n\
-          📅 **Date:** %s
-          👤 **Author:** @%s
-          📦 **Docker Image:** `cr.yandex/%s/app:%s`\n\n\
-          ---\n\n\
-        ### Changes since previous release:\n%s' \
-          "$DOCKER_TAG" \
-          "$(date '+%Y-%m-%d %H:%M')" \
-          "${{ github.actor }}" \
-          "${{ secrets.YC_REGISTRY_ID }}" \
-          "$DOCKER_TAG" \
-          "${{ steps.changelog.outputs.commits }}")"
+            --title "🚀 Release v$DOCKER_TAG" \
+            --body "$(cat <<EOF
+          ### 🚀 Release v$DOCKER_TAG
+            
+            📅 **Date:** $(date '+%Y-%m-%d %H:%M')
+            👤 **Author:** @${{ github.actor }}
+            📦 **Docker Image:** \`cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$DOCKER_TAG\`
+          
+          ---
+          
+          ### ✨ Changes since previous release:
+          
+          ${{ steps.changelog.outputs.commits }}
+          EOF
+          )"
