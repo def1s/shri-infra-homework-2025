@@ -19,18 +19,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Docker login & verify image
+      - name: Docker login & verify image exists
         env:
           YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
         run: |
           echo "$YC_SA_KEY" | docker login --username json_key --password-stdin cr.yandex
           IMAGE=${{ env.DOCKER_REGISTRY }}:${{ github.event.inputs.release_version }}_latest
-          docker manifest inspect $IMAGE || {
-            echo "::error::Docker image $IMAGE not found"
+          if ! docker manifest inspect $IMAGE > /dev/null; then
+            echo "::error::Docker image $IMAGE not found in registry"
             exit 1
-          }
+          fi
 
-      - name: Deploy to server
+      - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.REMOTE_HOST }}
@@ -43,13 +43,23 @@ jobs:
             TAG="${{ github.event.inputs.release_version }}_latest"
             IMAGE="$REGISTRY:$TAG"
 
+            # Останавливаем и удаляем старый контейнер, если он есть
             docker stop app || true
             docker rm app || true
 
+            # Обновляем образ
             docker pull $IMAGE
-            docker run -d --name app -p 3000:3000 $IMAGE
 
-      - name: Add deployment comment to issue
+            # Запускаем контейнер
+            docker run -d --restart unless-stopped --name app -p 3000:3000 $IMAGE
+
+            # Проверяем, что контейнер запущен
+            if ! docker ps --filter "name=app" --filter "status=running" | grep app > /dev/null; then
+              echo "Failed to start container"
+              exit 1
+            fi
+
+      - name: Add deployment comment to release issue
         if: github.event.repository.has_issues
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -60,8 +70,8 @@ jobs:
             gh issue comment "$ISSUE_NUMBER" \
               --body "**✅ Прод выкачан**  
           **Версия:** v$VERSION
-          **Автор:** ${{ github.actor }}
-          **Дата:** $(date +'%Y-%m-%d %H:%M')
+          **Автор:** @${{ github.actor }}
+          **Дата:** $(date -u +'%Y-%m-%d %H:%M UTC')
           **Образ:** cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:${VERSION}_latest"
           else
           echo "Issue not found, skipping comment"
