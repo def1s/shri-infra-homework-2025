@@ -58,6 +58,7 @@ export const Application: FC = () => {
                     </div>
                 </div>
             </nav>
+
             <div className='container pt-4'>
                 <Routes>
                     <Route path='/' element={<Home />} />
