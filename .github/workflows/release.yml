@@ -46,13 +46,19 @@ jobs:
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 v$DOCKER_TAG^ 2>/dev/null || echo "")
           COMMITS=$(git log ${PREV_TAG:+$PREV_TAG..HEAD} --pretty=format:"- %h %s (%an)")
-          printf "# v$DOCKER_TAG (%s)\n## Changes\n%s\n## Docker Image\n%s:%s" \
-            "$(date '+%Y-%m-%d')" "$COMMITS" "$DOCKER_REGISTRY" "$DOCKER_TAG" \
-            > full_changelog.txt
+          {
+            echo "# v$DOCKER_TAG ($(date '+%Y-%m-%d'))"
+            echo "## Changes"
+            echo "$COMMITS"
+            echo "## Docker Image"
+            echo "$DOCKER_REGISTRY:$DOCKER_TAG"
+          } > full_changelog.txt
+          
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           cat full_changelog.txt >> $GITHUB_OUTPUT
-          echo "EOF" 
-          >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+
 
       - name: Update CHANGELOG.md
         run: |
