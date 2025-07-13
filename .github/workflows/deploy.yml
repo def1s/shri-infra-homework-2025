@@ -33,8 +33,8 @@ jobs:
       - name: Deploy to server
         uses: appleboy/ssh-action@v0.1.8
         with:
-          host: ${{ secrets.VM_IP }}
-          username: ${{ secrets.VM_USER }}
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             echo '${{ secrets.YC_SA_KEY }}' | docker login --username json_key --password-stdin cr.yandex
