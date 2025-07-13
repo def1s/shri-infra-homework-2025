@@ -14,9 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { ref: releases/${{ github.event.inputs.release_version }}, fetch-depth: 0 }
+        with:
+          ref: releases/${{ github.event.inputs.release_version }}
+          fetch-depth: 0
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
+        with:
+          node-version: 20
+          cache: npm
       - run: |
           npm ci
           npm run lint

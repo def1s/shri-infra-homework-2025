@@ -8,9 +8,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
+        with:
+          node-version: 20
+          cache: npm
       - run: |
           npm ci
           npm run lint
@@ -24,7 +27,8 @@ jobs:
           git push origin releases/$DOCKER_TAG
 
       - name: Build and push Docker image
-        env: { YC_SA_KEY: ${{ secrets.YC_SA_KEY }} }
+        env:
+          YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
         run: |
           echo "$YC_SA_KEY" | docker login --username json_key --password-stdin cr.yandex
           docker build -t $DOCKER_REGISTRY:$DOCKER_TAG .
@@ -60,7 +64,8 @@ jobs:
 
       - name: Create release issue
         if: github.event.repository.has_issues
-        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue create \
             --title "Release v$DOCKER_TAG" \
