@@ -3,8 +3,9 @@ on: workflow_dispatch
 env:
   DOCKER_REGISTRY: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app
   DOCKER_TAG: ${{ github.run_number }}
+
 jobs:
-  release:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +18,28 @@ jobs:
       - run: |
           npm ci
           npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: |
+          npm ci
           npm test
+
+  release:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Create release branch
         run: |
@@ -57,17 +79,16 @@ jobs:
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           cat full_changelog.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-
 
       - name: Update CHANGELOG.md
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
+          test -f CHANGELOG.md || touch CHANGELOG.md
           echo -e "${{ steps.changelog.outputs.changelog }}\n\n$(cat CHANGELOG.md)" > CHANGELOG.md
           git add CHANGELOG.md
           git commit -m "Update CHANGELOG for v$DOCKER_TAG"
-          git push --set-upstream origin releases/$DOCKER_TAG
+          git push --set-upstream origin releases/$DOCKER_TAGы
 
       - name: Create release issue
         if: github.event.repository.has_issues
