@@ -1,5 +1,6 @@
 name: Release
 on: workflow_dispatch
+
 env:
   DOCKER_REGISTRY: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app
   DOCKER_TAG: ${{ github.run_number }}
@@ -68,6 +69,7 @@ jobs:
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 v$DOCKER_TAG^ 2>/dev/null || echo "")
           COMMITS=$(git log ${PREV_TAG:+$PREV_TAG..HEAD} --pretty=format:"- %h %s (%an)")
+          
           {
             echo "# v$DOCKER_TAG ($(date '+%Y-%m-%d'))"
             echo "## Changes"
@@ -78,6 +80,10 @@ jobs:
           
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           cat full_changelog.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Update CHANGELOG.md
@@ -97,5 +103,15 @@ jobs:
         run: |
           gh issue create \
             --title "Release v$DOCKER_TAG" \
-            --body "$(printf '### Release Information\n\n**Version:** v%s\n**Date:** %s\n**Author:** %s\n\n**Changes:**\n%s\n\n**Docker Image:**\n%s:%s' \
-              "$DOCKER_TAG" "$(date '+%Y-%m-%d %H:%M')" "${{ github.actor }}" "${{ steps.changelog.outputs.changelog }}" "$DOCKER_REGISTRY" "$DOCKER_TAG")"
+            --body "$(printf '### 🚀 Release v%s\n\n\
+          📅 **Date:** %s
+          👤 **Author:** @%s
+          📦 **Docker Image:** `cr.yandex/%s/app:%s`\n\n\
+          ---\n\n\
+        ### Changes since previous release:\n%s' \
+          "$DOCKER_TAG" \
+          "$(date '+%Y-%m-%d %H:%M')" \
+          "${{ github.actor }}" \
+          "${{ secrets.YC_REGISTRY_ID }}" \
+          "$DOCKER_TAG" \
+          "${{ steps.changelog.outputs.commits }}")"
