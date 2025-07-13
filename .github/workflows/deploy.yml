@@ -1,4 +1,5 @@
-name: Deploy to Prod
+name: Deploy to Production
+
 on:
   workflow_dispatch:
     inputs:
@@ -7,48 +8,64 @@ on:
 
 env:
   DOCKER_REGISTRY: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app
+  VM_IP: ${{ secrets.REMOTE_HOST }}
+  SSH_USER: ${{ secrets.REMOTE_USER }}
 
 jobs:
   deploy:
+    name: Deploy Docker image to VM
     runs-on: ubuntu-latest
+
     steps:
-      - name: Verify image exists
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Docker login (for verify)
         env:
           YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
         run: |
           echo "$YC_SA_KEY" | docker login --username json_key --password-stdin cr.yandex
-          IMAGE=$DOCKER_REGISTRY:${{ github.event.inputs.release_version }}_latest
-          docker manifest inspect $IMAGE
 
-      - name: Deploy via SSH
+      - name: Verify image exists in registry
+        run: |
+          docker manifest inspect $DOCKER_REGISTRY:${{ github.event.inputs.release_version }}_latest || {
+            echo "::error::Image $DOCKER_REGISTRY:${{ github.event.inputs.release_version }}_latest not found"
+            exit 1
+          }
+
+      - name: Deploy to VM
         uses: appleboy/ssh-action@v0.1.8
-        env:
-          DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            RELEASE_VERSION="${{ github.event.inputs.release_version }}"
-            echo "Using image: $DOCKER_REGISTRY:${RELEASE_VERSION}_latest"
+            echo '${{ secrets.YC_SA_KEY }}' | docker login --username json_key --password-stdin cr.yandex
 
-            docker pull $DOCKER_REGISTRY:${RELEASE_VERSION}_latest
             docker stop app || true
             docker rm app || true
-            docker run -d --name app -p 80:3000 $DOCKER_REGISTRY:${RELEASE_VERSION}_latest
-      
 
-      - uses: actions/github-script@v6
+            docker pull $DOCKER_REGISTRY:${{ github.event.inputs.release_version }}_latest
+
+            docker run -d \
+              --name app \
+              -p 80:3000 \
+              $DOCKER_REGISTRY:${{ github.event.inputs.release_version }}_latest
+
+      - name: Update GitHub issue with deployment status
+        if: github.event.repository.has_issues
         env:
-          VERSION: ${{ github.event.inputs.release_version }}
-        with:
-          script: |
-            const issues = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
-            const issue = issues.data.find(i => i.title === `Release v${process.env.VERSION}`);
-            if (!issue) return;
-            await github.rest.issues.createComment({ 
-              owner: context.repo.owner, 
-              repo: context.repo.repo, 
-              issue_number: issue.number, 
-              body: `**Deployed:** ${new Date().toISOString()}` 
-            });
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUMBER=$(gh issue list --search "Release v${{ github.event.inputs.release_version }}" --json number -q '.[0].number')
+
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "❗ Issue for release not found — skipping comment"
+            exit 0
+          fi
+
+          gh issue comment "$ISSUE_NUMBER" --body "**🚀 Релиз задеплоен**  
+          **Версия:** v${{ github.event.inputs.release_version }}
+          **Дата:** $(date '+%Y-%m-%d %H:%M')
+          **Docker Image:** $DOCKER_REGISTRY:${{ github.event.inputs.release_version }}_latest
+          **Сервер:** http://${{ secrets.REMOTE_HOST }}:80"
