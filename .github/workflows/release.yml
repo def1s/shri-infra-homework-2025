@@ -51,7 +51,8 @@ jobs:
             > full_changelog.txt
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           cat full_changelog.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "EOF" 
+          >> $GITHUB_OUTPUT
 
       - name: Update CHANGELOG.md
         run: |
