@@ -22,15 +22,18 @@ jobs:
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.8
+        env:
+          DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}
+          RELEASE_VERSION: ${{ github.event.inputs.release_version }}
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            docker pull $DOCKER_REGISTRY:${{ github.event.inputs.release_version }}_latest
+            docker pull $DOCKER_REGISTRY:${RELEASE_VERSION}_latest
             docker stop app || true
             docker rm app || true
-            docker run -d --name app -p 80:3000 $DOCKER_REGISTRY:${{ github.event.inputs.release_version }}_latest
+            docker run -d --name app -p 80:3000 $DOCKER_REGISTRY:${RELEASE_VERSION}_latest
 
       - uses: actions/github-script@v6
         env:
